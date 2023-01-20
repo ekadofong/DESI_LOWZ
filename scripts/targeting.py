@@ -8,7 +8,7 @@ from astropy.io import fits
 import scipy.constants as spc
 from astropy.io import fits
 
-def build_targets (filename="LOWZ_TARGETS_FUJI_HEALPIX.CSV"):
+def build_targets (filename="LOWZ_TARGETS_FUJI_HEALPIX.CSV", remove_duplicates=False):
     target_cat = pd.read_csv(filename, index_col=0).set_index('TARGETID')
 
     # \\ build catalogs
@@ -32,24 +32,28 @@ def build_targets (filename="LOWZ_TARGETS_FUJI_HEALPIX.CSV"):
     sp = specfit_fuji1.set_index('TARGETID')
     ph = photo_fuji1.set_index("TARGETID")
 
-    rankings = np.zeros(sp.shape[0], dtype=int)
-    rankings[sp['PROGRAM']=='dark'] = 4
-    rankings[sp['PROGRAM']=='other'] = 3
-    rankings[sp['PROGRAM']=='backup'] = 2
-    rankings[sp['PROGRAM']=='bright'] = 1
+    if remove_duplicates:
+        rankings = np.zeros(sp.shape[0], dtype=int)
+        rankings[sp['PROGRAM']=='dark'] = 4
+        rankings[sp['PROGRAM']=='other'] = 3
+        rankings[sp['PROGRAM']=='backup'] = 2
+        rankings[sp['PROGRAM']=='bright'] = 1
 
-    sp['ranking'] = rankings
-    ph['ranking'] = rankings
-    sp = sp.sort_values('ranking', ascending=False)
-    ph = ph.sort_values('ranking', ascending=False)
+        sp['ranking'] = rankings
+        ph['ranking'] = rankings
+        sp = sp.sort_values('ranking', ascending=False)
+        ph = ph.sort_values('ranking', ascending=False)
 
-    keep = ~sp.index.duplicated(keep='first')
-    assert np.isclose(sp.index,ph.index).all()
-    sp = sp.loc[keep]
-    ph = ph.loc[keep]
-    assert not sp.index.duplicated().any()
-    assert not ph.index.duplicated().any()    
-    
-    lowz_sp = sp.reindex(target_cat.index)
-    lowz_ph = ph.reindex(target_cat.index)
-    return lowz_sp, lowz_ph
+        keep = ~sp.index.duplicated(keep='first')
+        assert np.isclose(sp.index,ph.index).all()
+        sp = sp.loc[keep]
+        ph = ph.loc[keep]
+        assert not sp.index.duplicated().any()
+        assert not ph.index.duplicated().any()    
+
+        lowz_sp = sp.reindex(target_cat.index)
+        lowz_ph = ph.reindex(target_cat.index)
+    else:
+        lowz_sp = sp.loc[np.in1d(sp.index, target_cat.index)]
+        lowz_ph = ph.loc[np.in1d(ph.index, target_cat.index)]
+    return target_cat, lowz_sp, lowz_ph
